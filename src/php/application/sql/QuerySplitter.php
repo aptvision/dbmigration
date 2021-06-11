@@ -9,8 +9,15 @@ class QuerySplitter
      *
      * @return array
      */
+    private $sqlCommands = [
+        'select', 'insert', 'drop', 'update', 'create', 'alter', 'delete', 'truncate', 'grant', 'comment'
+    ];
+
     public function split($sql)
     {
+        // add trailing ; if not exists
+        $sql = rtrim(trim($sql), ';') . ';';
+
         // temporarily replace semicolons in quoted strings with a placeholder *ris_db_migrate_semicolon*
         $sql = preg_replace_callback('/([\'\"])[\s\S]*?\1/', function ($matches) {
             return str_replace(';', 'ris_db_migrate_semicolon', $matches[0]);
@@ -19,6 +26,7 @@ class QuerySplitter
         }, preg_replace_callback('/^ *--.*/', function ($matches) {
             return '--' . preg_replace('/\'/', '', $matches[0]);
         }, $sql));
+        $sql = preg_replace('/;(' . implode('|', $this->sqlCommands) . ')/i', ";\n$1", $sql);
 
         // sql blocks matching patterns (order matters)
         $patterns = [
@@ -29,7 +37,7 @@ class QuerySplitter
             // find CREATE ... RULE ... newLine x2 or end of file (create rule has to end with 2 line breaks for this to work) It could be done by recursive regex (?R), but I couldn't get it to work
             '/^ *create[\n\r\s]+(or[\n\r\s]+replace[\n\r\s]+)?rule[\s\S]+?;[\n\r\s]+([\n\r]|$)/im',
             // find any other queries until ; char
-            '/^ *(select|insert|drop|update|create|alter|delete|truncate|grant)[\s\S]*?;/im',
+            '/^ *(' . implode('|', $this->sqlCommands) . ')[\s\S]*?;/im',
         ];
         $queries = [];
         $sqlReplacementSchema = $sql;
@@ -51,8 +59,8 @@ class QuerySplitter
         foreach (explode(PHP_EOL, $sqlReplacementSchema) as $line) {
             if (preg_match('/^ris_db_migrate_replacement_([0-9])+_([0-9]+)$/', trim($line), $matches)) {
                 $remainsToProcess = trim($remainsToProcess);
-                if ($remainsToProcess) {
-                    echo 'String didn\'t match any query pattern. Falling back to the old query splitter for the following string:' . "\n" .   $remainsToProcess . "\n";
+                if ($remainsToProcess && !preg_match('/^[;\s]+$/', $remainsToProcess)) {
+                    echo 'String didn\'t match any query pattern. Falling back to the old query splitter for the following string:' . "\n" . $remainsToProcess . "\n";
                     $queriesToProcess = array_merge($queriesToProcess, $this->splitOld($remainsToProcess));
                     $remainsToProcess = '';
                 }
@@ -62,12 +70,18 @@ class QuerySplitter
             }
         }
         $remainsToProcess = trim($remainsToProcess);
-        if ($remainsToProcess) {
-            echo 'String didn\'t match any query pattern. Falling back to the old query splitter for the following string:' . "\n" .   $remainsToProcess . "\n";
+        if ($remainsToProcess && !preg_match('/^[;\s]+$/', $remainsToProcess)) {
+            echo 'String didn\'t match any query pattern. Falling back to the old query splitter for the following string:' . "\n" . $remainsToProcess . "\n";
             $queriesToProcess = array_merge($queriesToProcess, $this->splitOld($remainsToProcess));
         }
         // trim and remove empty queries
-        $queries = array_values(array_filter(array_map('trim', $queriesToProcess)));
+        $queries = array_values(array_filter(array_map('trim', $queriesToProcess), function ($query) {
+            // filter out entries only consisting of whitespace and semicolons
+            if (preg_match('/^[;\s]+$/', $query)) {
+                return false;
+            }
+            return trim($query);
+        }));
 
         // restore semicolons
         foreach ($queries as $key => $query) {
@@ -76,11 +90,6 @@ class QuerySplitter
         return $queries;
     }
 
-    /**
-     * @param $sql
-     *
-     * @return array
-     */
     public function splitOld($sql)
     {
         $sql = $this->removeCommentsAndSpaces($sql);
