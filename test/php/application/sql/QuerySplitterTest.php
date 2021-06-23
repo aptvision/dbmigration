@@ -6,7 +6,7 @@ class QuerySplitterTest extends \PHPUnit_Framework_TestCase
 {
     public function splitQueryProvider()
     {
-        return [
+        $originalQuerySplitterTests = [
             'single query' => [
                 'full' => "select 1",
                 'expectedSplit' => [
@@ -52,6 +52,52 @@ class QuerySplitterTest extends \PHPUnit_Framework_TestCase
                 ],
             ],
         ];
+
+        $newQuerySplitterTests = [
+            'simple query' => [
+                'full' => "SELECT 1;",
+                'expectedSplit' => [
+                    "SELECT 1;"
+                ]
+            ],
+            'multiple queries' => [
+                'full' => "SELECT 1;SELECT 2;SELECT 3;SELECT 4;",
+                'expectedSplit' => [
+                    "SELECT 1;",
+                    "SELECT 2;",
+                    "SELECT 3;",
+                    "SELECT 4;",
+                ]
+            ],
+            'multiple semicolons' => [
+                'full' => "SELECT 1;;;;;;SELECT 2;",
+                'expectedSplit' => [
+                    "SELECT 1;",
+                    "SELECT 2;"
+                ]
+            ],
+            'no semicolons' => [
+                'full' => "SELECT 1",
+                'expectedSplit' => [
+                    "SELECT 1;"
+                ]
+            ],
+            'multiple new lines' => [
+                'full' => "SELECT \n\n\n1;\n\n\n\nSELECT \n\n\n\n2;",
+                'expectedSplit' => [
+                    "SELECT \n\n\n1;",
+                    "SELECT \n\n\n\n2;",
+                ]
+            ],
+            'comments inside queries retained if in new line' => [
+                'full' => "SELECT\n-- selecting one\n1;\n-- selecting two\nSELECT 2;",
+                'expectedSplit' => [
+                    "SELECT\n-- selecting one\n1;",
+                    "SELECT 2;",
+                ]
+            ],
+        ];
+        return $newQuerySplitterTests;
     }
 
     /**
