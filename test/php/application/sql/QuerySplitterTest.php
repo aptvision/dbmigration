@@ -57,11 +57,11 @@ class QuerySplitterTest extends \PHPUnit_Framework_TestCase
             'simple query' => [
                 'full' => "SELECT 1;",
                 'expectedSplit' => [
-                    "SELECT 1"
+                    "SELECT 1;"
                 ]
             ],
             'multiple queries' => [
-                'full' => "SELECT 1;SELECT 2;SELECT 3;      SELECT 4;",
+                'full' => "SELECT 1;SELECT 2;SELECT 3;SELECT 4;",
                 'expectedSplit' => [
                     "SELECT 1;",
                     "SELECT 2;",
@@ -92,9 +92,7 @@ class QuerySplitterTest extends \PHPUnit_Framework_TestCase
             'comments inside queries retained if in new line' => [
                 'full' => "SELECT\n-- selecting one\n1;\n-- selecting two\nSELECT 2;",
                 'expectedSplit' => [
-                    "SELECT
-                -- selecting one 
-                1;",
+                    "SELECT\n-- selecting one\n1;",
                     "SELECT 2;",
                 ]
             ],
