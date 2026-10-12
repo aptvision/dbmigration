@@ -2,5 +2,9 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "github>aptvision/renovate-config"
-  ]
+  ],
+  "constraints": {
+    "composer": "^2",
+    "php": "7.4.*"
+  }
 }
